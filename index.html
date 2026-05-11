@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Hersenspinsel">
+    <title>Hersenspinsel</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon.svg">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:       #f2f2f7;
+            --surface:  #ffffff;
+            --text:     #1c1c1e;
+            --subtext:  #8e8e93;
+            --accent:   #007aff;
+            --success:  #34c759;
+            --danger:   #ff3b30;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg:      #000000;
+                --surface: #1c1c1e;
+                --text:    #ffffff;
+                --subtext: #8e8e93;
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', Helvetica, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 24px;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .card {
+            width: 100%;
+            max-width: 390px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 28px;
+        }
+
+        header {
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: -0.4px;
+        }
+
+        header p {
+            margin-top: 4px;
+            font-size: 14px;
+            color: var(--subtext);
+        }
+
+        .transcript-box {
+            width: 100%;
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 18px 20px;
+            min-height: 130px;
+            font-size: 17px;
+            line-height: 1.55;
+            word-break: break-word;
+        }
+
+        .transcript-box .placeholder {
+            color: var(--subtext);
+        }
+
+        /* Mic button */
+        .mic-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .ripple {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: var(--danger);
+            opacity: 0;
+            transform: scale(1);
+            pointer-events: none;
+        }
+
+        .ripple.active {
+            animation: ripple 1.8s ease-out infinite;
+        }
+
+        @keyframes ripple {
+            0%   { transform: scale(1);    opacity: 0.35; }
+            100% { transform: scale(2.2);  opacity: 0; }
+        }
+
+        .mic-btn {
+            position: relative;
+            z-index: 1;
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            border: none;
+            background: var(--accent);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 24px rgba(0,122,255,0.35);
+            transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+            -webkit-tap-highlight-color: transparent;
+            outline: none;
+        }
+
+        .mic-btn:active { transform: scale(0.94); }
+
+        .mic-btn.recording {
+            background: var(--danger);
+            box-shadow: 0 6px 24px rgba(255,59,48,0.4);
+        }
+
+        .mic-btn.sending {
+            background: var(--subtext);
+            box-shadow: none;
+            pointer-events: none;
+        }
+
+        .mic-btn.sent {
+            background: var(--success);
+            box-shadow: 0 6px 24px rgba(52,199,89,0.4);
+            pointer-events: none;
+        }
+
+        .mic-btn svg {
+            width: 38px;
+            height: 38px;
+            fill: #fff;
+            transition: opacity 0.15s ease;
+        }
+
+        .spinner {
+            display: none;
+            width: 28px;
+            height: 28px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .mic-btn.sending .mic-icon,
+        .mic-btn.sending .stop-icon { display: none; }
+        .mic-btn.sending .spinner    { display: block; }
+
+        .stop-icon { display: none; }
+        .mic-btn.recording .mic-icon  { display: none; }
+        .mic-btn.recording .stop-icon { display: flex; }
+
+        .status {
+            font-size: 15px;
+            color: var(--subtext);
+            text-align: center;
+            min-height: 22px;
+            transition: color 0.2s ease;
+        }
+
+        .status.ok    { color: var(--success); font-weight: 600; }
+        .status.error { color: var(--danger);  font-weight: 500; }
+
+        footer {
+            font-size: 12px;
+            color: var(--subtext);
+            text-align: center;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <header>
+        <h1>Hersenspinsel</h1>
+        <p>Spreek in — email volgt automatisch</p>
+    </header>
+
+    <div class="transcript-box" id="box">
+        <span class="placeholder" id="placeholder">Jouw gedachte verschijnt hier...</span>
+        <span id="transcript"></span>
+    </div>
+
+    <div class="mic-wrap">
+        <div class="ripple" id="ripple"></div>
+        <button class="mic-btn" id="micBtn" aria-label="Opname starten" onclick="toggle()">
+            <!-- idle: mic icon -->
+            <svg class="mic-icon" viewBox="0 0 24 24">
+                <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93V21h2v-3.07A7 7 0 0 0 19 11h-2z"/>
+            </svg>
+            <!-- recording: stop square -->
+            <svg class="stop-icon" viewBox="0 0 24 24" style="display:none">
+                <rect x="6" y="6" width="12" height="12" rx="2"/>
+            </svg>
+            <!-- sending: spinner -->
+            <div class="spinner"></div>
+        </button>
+    </div>
+
+    <div class="status" id="status">Tik op de microfoon om te beginnen</div>
+
+    <footer>Na het inspreken opent de Mail-app met alles ingevuld —<br>jij tikt alleen nog op <strong>Verzenden</strong></footer>
+</div>
+
+<script>
+// ── Configuratie ───────────────────────────────────────────────────────────────
+const TO_EMAIL = 'h.joele@degoeij.nl';
+
+// ── State ──────────────────────────────────────────────────────────────────────
+let recognition = null;
+let isRecording = false;
+let finalText   = '';
+
+// ── DOM ────────────────────────────────────────────────────────────────────────
+const micBtn       = document.getElementById('micBtn');
+const ripple       = document.getElementById('ripple');
+const transcriptEl = document.getElementById('transcript');
+const placeholder  = document.getElementById('placeholder');
+const statusEl     = document.getElementById('status');
+
+function setStatus(msg, cls = '') {
+    statusEl.textContent = msg;
+    statusEl.className   = 'status ' + cls;
+}
+
+function showText(text) {
+    placeholder.style.display = text ? 'none' : '';
+    transcriptEl.textContent  = text;
+}
+
+// ── Spraakherkenning ───────────────────────────────────────────────────────────
+function toggle() {
+    isRecording ? stopRecording() : startRecording();
+}
+
+function startRecording() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+        setStatus('Spraakherkenning niet beschikbaar op dit apparaat.', 'error');
+        return;
+    }
+
+    finalText = '';
+    showText('');
+
+    recognition                = new SR();
+    recognition.lang           = 'nl-NL';
+    recognition.continuous     = false;
+    recognition.interimResults = true;
+
+    recognition.onstart = () => {
+        isRecording = true;
+        micBtn.classList.add('recording');
+        ripple.classList.add('active');
+        setStatus('Luisteren...');
+    };
+
+    recognition.onresult = (e) => {
+        let interim = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+            const t = e.results[i][0].transcript;
+            e.results[i].isFinal ? (finalText += t) : (interim += t);
+        }
+        showText(finalText + interim);
+    };
+
+    recognition.onerror = (e) => {
+        isRecording = false;
+        micBtn.classList.remove('recording');
+        ripple.classList.remove('active');
+        const msgs = {
+            'no-speech':   'Geen spraak gedetecteerd — probeer opnieuw.',
+            'not-allowed': 'Microfoon geweigerd. Geef toegang via Instellingen → Safari.',
+            'network':     'Netwerkfout — controleer je verbinding.',
+        };
+        setStatus(msgs[e.error] || 'Fout: ' + e.error, 'error');
+    };
+
+    recognition.onend = () => {
+        isRecording = false;
+        micBtn.classList.remove('recording');
+        ripple.classList.remove('active');
+        const text = finalText.trim();
+        text ? openMail(text) : setStatus('Tik op de microfoon om te beginnen');
+    };
+
+    recognition.start();
+}
+
+function stopRecording() {
+    recognition?.stop();
+}
+
+// ── Mail openen ────────────────────────────────────────────────────────────────
+function dutchDateTime() {
+    return new Date().toLocaleString('nl-NL', {
+        weekday: 'long', year: 'numeric', month: 'long',
+        day: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+}
+
+function openMail(text) {
+    const dt      = dutchDateTime();
+    const subject = encodeURIComponent('Hersenspinsel — ' + dt);
+    const body    = encodeURIComponent(text);
+
+    micBtn.classList.add('sent');
+    setStatus('Mail-app opent...', 'ok');
+
+    window.location.href = `mailto:${TO_EMAIL}?subject=${subject}&body=${body}`;
+
+    setTimeout(reset, 3000);
+}
+
+function reset() {
+    micBtn.className = 'mic-btn';
+    setStatus('Tik op de microfoon om te beginnen');
+    showText('');
+    finalText = '';
+}
+</script>
+</body>
+</html>
