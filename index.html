@@ -270,6 +270,18 @@ function startRecording() {
     finalText = '';
     showText('');
 
+    // Vraag eerst expliciet microfoontoestemming — iOS vereist dit
+    navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+            stream.getTracks().forEach(t => t.stop()); // direct stoppen, alleen toestemming nodig
+            beginSpeech(SR);
+        })
+        .catch(() => {
+            setStatus('Microfoon geweigerd. Geef toegang via Instellingen → Privacy → Microfoon.', 'error');
+        });
+}
+
+function beginSpeech(SR) {
     recognition                = new SR();
     recognition.lang           = 'nl-NL';
     recognition.continuous     = false;
