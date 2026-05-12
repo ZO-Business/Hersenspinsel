@@ -284,7 +284,7 @@ function startRecording() {
 function beginSpeech(SR) {
     recognition                = new SR();
     recognition.lang           = 'nl-NL';
-    recognition.continuous     = false;
+    recognition.continuous     = true;
     recognition.interimResults = true;
 
     recognition.onstart = () => {
